@@ -6,8 +6,25 @@ class FlagCalendarWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const int totalDays = 30;
-    const int currentDay = 26;
+    final now = DateTime.now();
+    final int totalDays = DateUtils.getDaysInMonth(now.year, now.month);
+    final int currentDay = now.day;
+
+    final months = [
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC',
+    ];
+    final String currentMonth = months[now.month - 1];
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -18,7 +35,7 @@ class FlagCalendarWidget extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'JUNE',
+              currentMonth,
               style: GoogleFonts.dmSans(
                 fontWeight: FontWeight.w700,
                 fontSize: 12,
@@ -44,15 +61,11 @@ class FlagCalendarWidget extends StatelessWidget {
             ),
           ],
         ),
-        
+
         const SizedBox(width: 10),
-        Container(
-          height: 38,
-          width: 1,
-          color: Colors.black.withOpacity(0.1),
-        ),
+        Container(height: 38, width: 1, color: Colors.black.withOpacity(0.1)),
         const SizedBox(width: 10),
-        
+
         SizedBox(
           width: 96,
           child: Wrap(
@@ -65,12 +78,12 @@ class FlagCalendarWidget extends StatelessWidget {
 
               return Icon(
                 Icons.circle,
-                size: 8, 
-                color: isCurrent 
-                    ? const Color(0xFF0A0A0A) 
-                    : isPast 
-                        ? Colors.black.withOpacity(0.2) 
-                        : Colors.black.withOpacity(0.08),
+                size: 8,
+                color: isCurrent
+                    ? const Color(0xFF0A0A0A)
+                    : isPast
+                    ? Colors.black.withOpacity(0.2)
+                    : Colors.black.withOpacity(0.08),
               );
             }),
           ),
