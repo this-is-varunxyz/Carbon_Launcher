@@ -1,3 +1,4 @@
+import 'package:carbon_launcher/features/tasks/presentation/pages/home_page.dart';
 import 'package:flutter/material.dart';
 import 'core/database/hive_setup.dart';
 
@@ -22,18 +23,7 @@ class CarbonLauncherApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFFF5F5F5), // Light grey/white Notion style
         useMaterial3: true,
       ),
-      home: const Scaffold(
-        body: Center(
-          child: Text(
-            'Backend Initialized.',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.black,
-              letterSpacing: 1.2,
-            ),
-          ),
-        ),
-      ),
+      home: const HomePage(),
     );
   }
 }
