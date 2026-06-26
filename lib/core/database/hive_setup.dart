@@ -10,5 +10,7 @@ class HiveSetup {
     Hive.registerAdapter(TaskModelAdapter());
 
     await Hive.openBox<TaskModel>('tasksBox');
+    await Hive.openBox<String>('favoriteAppsBox');
+    await Hive.openBox<String>('settingsBox');
   }
 }

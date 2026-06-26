@@ -11,13 +11,12 @@ class AppRepositoryImpl implements AppRepository {
   Future<List<AppEntity>> getInstalledApps() async {
     final rawApps = await dataSource.getInstalledApps();
     
- 
     final apps = rawApps.map((app) => AppEntity(
       name: app.name ?? 'Unknown',
       packageName: app.packageName ?? '',
+      icon: app.icon, 
     )).toList();
 
- 
     apps.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     
     return apps;

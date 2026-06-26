@@ -51,7 +51,7 @@ class FlagCalendarWidget extends StatelessWidget {
                 Text(
                   '$currentDay / $totalDays',
                   style: GoogleFonts.dmMono(
-                    color: Colors.black.withOpacity(0.36),
+                    color: Colors.black.withValues(alpha: 0.36),
                     fontSize: 9,
                     fontWeight: FontWeight.w400,
                     letterSpacing: 0.5,
@@ -63,7 +63,7 @@ class FlagCalendarWidget extends StatelessWidget {
         ),
 
         const SizedBox(width: 10),
-        Container(height: 38, width: 1, color: Colors.black.withOpacity(0.1)),
+        Container(height: 38, width: 1, color: Colors.black.withValues(alpha: 0.1)),
         const SizedBox(width: 10),
 
         SizedBox(
@@ -82,8 +82,8 @@ class FlagCalendarWidget extends StatelessWidget {
                 color: isCurrent
                     ? const Color(0xFF0A0A0A)
                     : isPast
-                    ? Colors.black.withOpacity(0.2)
-                    : Colors.black.withOpacity(0.08),
+                    ? Colors.black.withValues(alpha: 0.2)
+                    : Colors.black.withValues(alpha: 0.08),
               );
             }),
           ),

@@ -118,7 +118,7 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
             style: GoogleFonts.dmSans(fontSize: 18, color: const Color(0xFF0A0A0A)),
             decoration: InputDecoration(
               hintText: 'What needs to be done?',
-              hintStyle: GoogleFonts.dmSans(color: Colors.black.withOpacity(0.3)),
+              hintStyle: GoogleFonts.dmSans(color: Colors.black.withValues(alpha: 0.3)),
               border: InputBorder.none,
             ),
           ),
@@ -132,13 +132,13 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: _isDeadline ? const Color(0xFF0A0A0A) : Colors.black.withOpacity(0.05),
+                    color: _isDeadline ? const Color(0xFF0A0A0A) : Colors.black.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     _getFormattedDate(),
                     style: GoogleFonts.dmMono(
-                      color: _isDeadline ? Colors.white : Colors.black.withOpacity(0.5),
+                      color: _isDeadline ? Colors.white : Colors.black.withValues(alpha: 0.5),
                       fontSize: 11,
                     ),
                   ),

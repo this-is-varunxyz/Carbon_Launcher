@@ -9,10 +9,9 @@ abstract class AppLocalDataSource {
 class AppLocalDataSourceImpl implements AppLocalDataSource {
   @override
   Future<List<AppInfo>> getInstalledApps() async {
- 
     return await InstalledApps.getInstalledApps(
-      excludeSystemApps: true,
-      withIcon: false, 
+      excludeSystemApps: false,
+      withIcon: true,
     );
   }
 
