@@ -8,15 +8,14 @@ import '../bloc/app_cubit.dart';
 import '../bloc/app_state.dart';
 import '../../domain/entities/app_entity.dart';
 
-class AppSelectionSheet extends StatefulWidget {
-  final bool isSelectingFav;
-  const AppSelectionSheet({super.key, this.isSelectingFav = false});
+class AllAppsDrawerSheet extends StatefulWidget {
+  const AllAppsDrawerSheet({super.key});
 
   @override
-  State<AppSelectionSheet> createState() => _AppSelectionSheetState();
+  State<AllAppsDrawerSheet> createState() => _AllAppsDrawerSheetState();
 }
 
-class _AppSelectionSheetState extends State<AppSelectionSheet> {
+class _AllAppsDrawerSheetState extends State<AllAppsDrawerSheet> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
@@ -26,6 +25,7 @@ class _AppSelectionSheetState extends State<AppSelectionSheet> {
 
   final double _appItemHeight = 56.0;
   final double _headerItemHeight = 40.0;
+
   final List<String> _alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ#'.split('');
 
   String? _draggingLetter;
@@ -67,6 +67,7 @@ class _AppSelectionSheetState extends State<AppSelectionSheet> {
   void _buildListAndOffsets(List<AppEntity> apps) {
     _flattenedList.clear();
     _letterOffsets.clear();
+
     double currentOffset = 0.0;
     String? lastLetter;
 
@@ -146,18 +147,6 @@ class _AppSelectionSheetState extends State<AppSelectionSheet> {
               decoration: BoxDecoration(
                 color: Colors.black.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          Center(
-            child: Text(
-              widget.isSelectingFav ? 'Select Fav App' : 'Select an App',
-              style: GoogleFonts.dmSans(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
               ),
             ),
           ),
@@ -330,18 +319,9 @@ class _AppSelectionSheetState extends State<AppSelectionSheet> {
                                 height: _appItemHeight,
                                 child: InkWell(
                                   onTap: () {
-                                    if (widget.isSelectingFav) {
-                                      Hive.box<String>(
-                                        'settingsBox',
-                                      ).put('fav_app', app.packageName);
-                                    } else {
-                                      final favBox = Hive.box<String>(
-                                        'favoriteAppsBox',
-                                      );
-                                      if (favBox.length < 8) {
-                                        favBox.add(app.packageName);
-                                      }
-                                    }
+                                    context.read<AppCubit>().launchApp(
+                                      app.packageName,
+                                    );
                                     Navigator.pop(context);
                                   },
                                   child: Padding(

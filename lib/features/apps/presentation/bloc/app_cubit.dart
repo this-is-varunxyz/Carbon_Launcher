@@ -11,7 +11,9 @@ class AppCubit extends Cubit<AppState> {
     required this.launchAppUseCase,
   }) : super(AppInitial());
 
-  Future<void> loadApps() async {
+  Future<void> loadApps({bool forceRefresh = false}) async {
+    if (!forceRefresh && state is AppLoaded) return;
+
     emit(AppLoading());
     try {
       final apps = await getInstalledAppsUseCase();
@@ -25,7 +27,6 @@ class AppCubit extends Cubit<AppState> {
     try {
       await launchAppUseCase(packageName);
     } catch (e) {
- 
       print('Could not launch app: $e');
     }
   }

@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:carbon_launcher/features/apps/presentation/bloc/app_cubit.dart';
 import 'package:carbon_launcher/features/apps/presentation/bloc/app_state.dart';
+import 'package:carbon_launcher/features/apps/presentation/widgets/all_apps_drawer_sheet.dart';
 import 'package:carbon_launcher/features/apps/presentation/widgets/app_selection_sheet.dart';
 import 'package:carbon_launcher/features/apps/presentation/widgets/apps_drawer_sheet.dart';
 import 'package:flutter/material.dart';
@@ -11,13 +12,13 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter/services.dart';
 import 'package:audioplayers/audioplayers.dart'; 
 
-
-
-import '../widgets/flag_calendar_widget.dart';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../widgets/add_task_sheet.dart';
 
-
 import '../bloc/task_cubit.dart';
+import '../bloc/task_state.dart';
 import '../bloc/task_state.dart';
 import '../../domain/entities/task_entity.dart';
 
@@ -28,16 +29,35 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final TextEditingController _searchController = TextEditingController();
   final Set<String> _alertedTasks = {}; 
   final AudioPlayer _audioPlayer = AudioPlayer(); 
 
+  static const platform = MethodChannel('carbon.launcher/channel');
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkIfDefaultLauncher();
+    });
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
-    _audioPlayer.dispose(); 
+    _audioPlayer.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkIfDefaultLauncher();
+    }
   }
 
   List<BoxShadow> get neuOut => [
@@ -61,15 +81,60 @@ class _HomePageState extends State<HomePage> {
     0, 0, 0, 1, 0,
   ]);
 
-  
+  Future<void> _checkIfDefaultLauncher() async {
+    try {
+      final bool isDefault = await platform.invokeMethod('isDefaultLauncher');
+      if (!isDefault && mounted) {
+        _promptDefaultLauncher();
+      }
+    } on PlatformException catch (e) {
+      debugPrint("Failed to check default launcher status: '${e.message}'.");
+    }
+  }
+
+  void _promptDefaultLauncher() {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFFF0F0F0),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Default Launcher', style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, color: Colors.black)),
+          content: Text(
+            'To use Carbon as your primary home screen, please set it as your default launcher in the system settings.', 
+            style: GoogleFonts.dmSans(color: Colors.black.withOpacity(0.8))
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text('Cancel', style: GoogleFonts.dmSans(color: Colors.black.withOpacity(0.6), fontWeight: FontWeight.w600)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () async {
+                Navigator.pop(dialogContext);
+                const intent = AndroidIntent(
+                  action: 'android.settings.HOME_SETTINGS',
+                );
+                await intent.launch();
+              },
+              child: Text('Open Settings', style: GoogleFonts.dmSans(color: Colors.white, fontWeight: FontWeight.w600)),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   void _showUrgentAlarm(BuildContext context, String taskTitle) async {
-    
     HapticFeedback.heavyImpact();
     Future.delayed(const Duration(milliseconds: 300), () => HapticFeedback.heavyImpact());
     Future.delayed(const Duration(milliseconds: 600), () => HapticFeedback.heavyImpact());
 
-    
     try {
       await _audioPlayer.setReleaseMode(ReleaseMode.loop);
       await _audioPlayer.play(AssetSource('sounds/alarm.mp3'));
@@ -81,7 +146,7 @@ class _HomePageState extends State<HomePage> {
 
     showDialog(
       context: context,
-      barrierDismissible: false, 
+      barrierDismissible: false,
       builder: (BuildContext dialogContext) {
         return Material(
           color: const Color(0xFFEF4444), 
@@ -174,7 +239,7 @@ class _HomePageState extends State<HomePage> {
             children: [
               const SizedBox(height: 16),
 
-              
+
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -223,7 +288,6 @@ class _HomePageState extends State<HomePage> {
 
               const SizedBox(height: 24),
 
-              
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 decoration: BoxDecoration(
@@ -266,7 +330,6 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 24),
 
-              
               Expanded(
                 child: BlocBuilder<TaskCubit, TaskState>(
                   builder: (context, state) {
@@ -313,103 +376,118 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
 
-              
-              Container(
-                margin: const EdgeInsets.only(bottom: 24, left: 10, right: 10),
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                decoration: BoxDecoration(
-                  color: bgColor,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: neuOut,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    
-                    ValueListenableBuilder(
-                      valueListenable: Hive.box<String>('settingsBox').listenable(),
-                      builder: (context, box, _) {
-                        final favPackage = box.get('fav_app');
+              GestureDetector(
+                onVerticalDragEnd: (details) {
+                  final enableSwipe = Hive.box<String>('settingsBox').get('enable_swipe_drawer', defaultValue: 'true') == 'true';
 
-                        return BlocBuilder<AppCubit, AppState>(
-                          builder: (context, state) {
-                            if (state is AppLoaded && favPackage != null) {
-                              final favApp = state.apps.firstWhere((a) => a.packageName == favPackage, orElse: () => state.apps[0]);
+                  if (enableSwipe && details.primaryVelocity != null && details.primaryVelocity! < -300) {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      transitionAnimationController: AnimationController(
+                        vsync: Navigator.of(context),
+                        duration: const Duration(milliseconds: 350),
+                      )..drive(CurveTween(curve: Curves.easeOutQuart)),
+                      builder: (_) => const AllAppsDrawerSheet(),
+                    );
+                  }
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 24, left: 10, right: 10),
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: neuOut,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      ValueListenableBuilder(
+                        valueListenable: Hive.box<String>('settingsBox').listenable(),
+                        builder: (context, box, _) {
+                          final favPackage = box.get('fav_app');
+                          final useMonochrome = box.get('use_monochrome', defaultValue: 'true') == 'true';
+
+                          return BlocBuilder<AppCubit, AppState>(
+                            builder: (context, state) {
+                              if (state is AppLoaded && favPackage != null) {
+                                final favApp = state.apps.firstWhere((a) => a.packageName == favPackage, orElse: () => state.apps[0]);
+
+                                return SizedBox(
+                                  width: 60,
+                                  child: _buildDockButton(
+                                    iconBytes: favApp.icon,
+                                    letterFallback: favApp.name.isNotEmpty ? favApp.name[0].toUpperCase() : '?',
+                                    label: favApp.name,
+                                    isPrimary: false,
+                                    useMonochrome: useMonochrome,
+                                    onTap: () => context.read<AppCubit>().launchApp(favApp.packageName),
+                                    onLongPress: () => box.delete('fav_app'),
+                                  ),
+                                );
+                              }
 
                               return SizedBox(
                                 width: 60,
                                 child: _buildDockButton(
-                                  iconBytes: favApp.icon,
-                                  letterFallback: favApp.name.isNotEmpty ? favApp.name[0].toUpperCase() : '?',
-                                  label: favApp.name,
+                                  iconData: Icons.favorite_border,
+                                  label: 'Fav',
                                   isPrimary: false,
-                                  onTap: () => context.read<AppCubit>().launchApp(favApp.packageName),
-                                  onLongPress: () => box.delete('fav_app'),
+                                  onTap: () {
+                                    showModalBottomSheet(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      backgroundColor: Colors.transparent,
+                                      builder: (_) => const AppSelectionSheet(isSelectingFav: true),
+                                    );
+                                  },
                                 ),
                               );
-                            }
+                            },
+                          );
+                        },
+                      ),
 
-                            
-                            return SizedBox(
-                              width: 60,
-                              child: _buildDockButton(
-                                iconData: Icons.favorite_border,
-                                label: 'Fav',
-                                isPrimary: false,
-                                onTap: () {
-                                  showModalBottomSheet(
-                                    context: context,
-                                    isScrollControlled: true,
-                                    backgroundColor: Colors.transparent,
-                                    builder: (_) => const AppSelectionSheet(isSelectingFav: true),
-                                  );
-                                },
+                      SizedBox(
+                        width: 60,
+                        child: _buildDockButton(
+                          iconData: Icons.add,
+                          label: 'Add',
+                          isPrimary: true,
+                          onTap: () {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (_) => BlocProvider.value(
+                                value: context.read<TaskCubit>(),
+                                child: const AddTaskSheet(),
                               ),
                             );
                           },
-                        );
-                      },
-                    ),
-
-                    
-                    SizedBox(
-                      width: 60,
-                      child: _buildDockButton(
-                        iconData: Icons.add,
-                        label: 'Add',
-                        isPrimary: true,
-                        onTap: () {
-                          showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: Colors.transparent,
-                            builder: (_) => BlocProvider.value(
-                              value: context.read<TaskCubit>(),
-                              child: const AddTaskSheet(),
-                            ),
-                          );
-                        },
+                        ),
                       ),
-                    ),
 
-                    
-                    SizedBox(
-                      width: 60,
-                      child: _buildDockButton(
-                        iconData: Icons.grid_view_rounded,
-                        label: 'Apps',
-                        isPrimary: false,
-                        onTap: () {
-                          showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: Colors.transparent,
-                            builder: (_) => const AppsDrawerSheet(),
-                          );
-                        },
+                      SizedBox(
+                        width: 60,
+                        child: _buildDockButton(
+                          iconData: Icons.grid_view_rounded,
+                          label: 'Apps',
+                          isPrimary: false,
+                          onTap: () {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (_) => const AppsDrawerSheet(),
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -419,7 +497,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  
+
 
   Color _getPriorityColor(TaskPriority priority) {
     switch (priority) {
@@ -498,8 +576,6 @@ class _HomePageState extends State<HomePage> {
                 String remaining = diff.inDays > 0 ? '${diff.inDays}d' : diff.inHours > 0 ? '${diff.inHours}h' : '${diff.inMinutes}m';
                 subtitle = '$remaining · ${_formatDisplayDate(task.deadline)}';
 
-                
-               
                 if (progress >= 0.90 && !_alertedTasks.contains(task.id)) {
                   _alertedTasks.add(task.id);
                   WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -623,12 +699,13 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildDockButton({
+ Widget _buildDockButton({
     String? letterFallback,
     IconData? iconData,
     Uint8List? iconBytes,
     required String label,
     required bool isPrimary,
+    bool useMonochrome = false,
     VoidCallback? onTap,
     VoidCallback? onLongPress,
   }) {
@@ -652,10 +729,12 @@ class _HomePageState extends State<HomePage> {
               child: iconData != null
                   ? Icon(iconData, color: isPrimary ? const Color(0xFFF5F5F5) : Colors.black.withValues(alpha: 0.52), size: 24)
                   : iconBytes != null
-                      ? ColorFiltered(
-                          colorFilter: greyscaleFilter,
-                          child: Image.memory(iconBytes, width: 28, height: 28),
-                        )
+                      ? (useMonochrome 
+                          ? ColorFiltered(
+                              colorFilter: greyscaleFilter,
+                              child: Image.memory(iconBytes, width: 28, height: 28),
+                            )
+                          : Image.memory(iconBytes, width: 28, height: 28)
                       : Text(
                           letterFallback ?? '?',
                           style: GoogleFonts.dmMono(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black.withValues(alpha: 0.7)),
