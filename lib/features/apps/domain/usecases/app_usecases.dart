@@ -5,8 +5,8 @@ class GetInstalledAppsUseCase {
   final AppRepository repository;
   GetInstalledAppsUseCase(this.repository);
 
-  Future<List<AppEntity>> call() async {
-    return await repository.getInstalledApps();
+  Future<List<AppEntity>> call({required bool withIcon}) async {
+    return await repository.getInstalledApps(withIcon: withIcon);
   }
 }
 

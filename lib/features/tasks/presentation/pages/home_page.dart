@@ -1,9 +1,8 @@
 import 'dart:async';
-import 'dart:typed_data';
+import 'package:carbon_launcher/features/apps/domain/entities/app_entity.dart';
 import 'package:carbon_launcher/features/apps/presentation/bloc/app_cubit.dart';
 import 'package:carbon_launcher/features/apps/presentation/bloc/app_state.dart';
-import 'package:carbon_launcher/features/apps/presentation/widgets/all_apps_drawer_sheet.dart';
-import 'package:carbon_launcher/features/apps/presentation/widgets/app_selection_sheet.dart';
+import 'package:carbon_launcher/features/apps/presentation/widgets/app_list_sheet.dart';
 import 'package:carbon_launcher/features/apps/presentation/widgets/apps_drawer_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -13,16 +12,12 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter/services.dart';
 import 'package:audioplayers/audioplayers.dart'; 
 
-
 import '../widgets/flag_calendar_widget.dart';
 import '../widgets/add_task_sheet.dart';
-
 
 import '../bloc/task_cubit.dart';
 import '../bloc/task_state.dart';
 import '../../domain/entities/task_entity.dart';
-
-
 
 final Color bgColor = const Color(0xFFF0F0F0);
 final Color inputColor = const Color(0xFFEBEBEB);
@@ -37,13 +32,6 @@ List<BoxShadow> get neuCard => [
   BoxShadow(color: Colors.black.withValues(alpha: 0.08), offset: const Offset(4, 4), blurRadius: 10),
   BoxShadow(color: Colors.white.withValues(alpha: 0.90), offset: const Offset(-3, -3), blurRadius: 8),
 ];
-
-const ColorFilter greyscaleFilter = ColorFilter.matrix(<double>[
-  0.2126, 0.7152, 0.0722, 0, 0,
-  0.2126, 0.7152, 0.0722, 0, 0,
-  0.2126, 0.7152, 0.0722, 0, 0,
-  0, 0, 0, 1, 0,
-]);
 
 Color getPriorityColor(TaskPriority priority) {
   switch (priority) {
@@ -71,20 +59,10 @@ void confirmDelete(BuildContext context, String taskId) {
         title: Text('Delete Task?', style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, color: Colors.black)),
         content: Text('Are you sure you want to permanently delete this task?', style: GoogleFonts.dmSans(color: Colors.black.withValues(alpha: 0.8))),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text('Cancel', style: GoogleFonts.dmSans(color: Colors.black.withValues(alpha: 0.6), fontWeight: FontWeight.w600)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text('Cancel', style: GoogleFonts.dmSans(color: Colors.black.withValues(alpha: 0.6), fontWeight: FontWeight.w600))),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFEF4444),
-              elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            onPressed: () {
-              context.read<TaskCubit>().deleteTask(taskId);
-              Navigator.pop(dialogContext);
-            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            onPressed: () { context.read<TaskCubit>().deleteTask(taskId); Navigator.pop(dialogContext); },
             child: Text('Delete', style: GoogleFonts.dmSans(color: Colors.white, fontWeight: FontWeight.w600)),
           ),
         ],
@@ -93,6 +71,16 @@ void confirmDelete(BuildContext context, String taskId) {
   );
 }
 
+class AlarmService {
+  static final AudioPlayer _player = AudioPlayer();
+  static Future<void> play() async {
+    try {
+      await _player.setReleaseMode(ReleaseMode.loop);
+      await _player.play(AssetSource('sounds/alarm.mp3'));
+    } catch (e) { debugPrint("Audio issue: $e"); }
+  }
+  static void stop() => _player.stop();
+}
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -109,7 +97,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkIfDefaultLauncher());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkIfDefaultLauncher();
+      context.read<AppCubit>().loadApps();
+    });
   }
 
   @override
@@ -143,10 +134,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           title: Text('Default Launcher', style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, color: Colors.black)),
           content: Text('To use Carbon as your primary home screen, please set it as your default launcher in the system settings.', style: GoogleFonts.dmSans(color: Colors.black.withOpacity(0.8))),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: Text('Cancel', style: GoogleFonts.dmSans(color: Colors.black.withOpacity(0.6), fontWeight: FontWeight.w600)),
-            ),
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text('Cancel', style: GoogleFonts.dmSans(color: Colors.black.withOpacity(0.6), fontWeight: FontWeight.w600))),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.black, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
               onPressed: () async {
@@ -173,37 +161,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 16),
-              
-              // TOP HEADER (Clock is now isolated to prevent full page rebuilds)
-              const Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  LiveClockWidget(),
-                  FlagCalendarWidget(),
-                ],
-              ),
+              const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.center, children: [LiveClockWidget(), FlagCalendarWidget()]),
               const SizedBox(height: 24),
 
-              // SEARCH BAR
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                decoration: BoxDecoration(
-                  color: inputColor,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withValues(alpha: 0.04), offset: const Offset(2, 2), blurRadius: 4),
-                    BoxShadow(color: Colors.white.withValues(alpha: 0.8), offset: const Offset(-2, -2), blurRadius: 4),
-                  ],
-                ),
+                decoration: BoxDecoration(color: inputColor, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), offset: const Offset(2, 2), blurRadius: 4), BoxShadow(color: Colors.white.withValues(alpha: 0.8), offset: const Offset(-2, -2), blurRadius: 4)]),
                 child: Row(
                   children: [
                     Icon(Icons.search, color: Colors.black.withValues(alpha: 0.4), size: 20),
                     const SizedBox(width: 12),
                     Expanded(
                       child: TextField(
-                        controller: _searchController,
-                        textInputAction: TextInputAction.search,
+                        controller: _searchController, textInputAction: TextInputAction.search,
                         onSubmitted: (query) async {
                           if (query.trim().isNotEmpty) {
                             final intent = AndroidIntent(action: 'android.intent.action.WEB_SEARCH', arguments: <String, dynamic>{'query': query});
@@ -211,12 +181,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             _searchController.clear();
                           }
                         },
-                        decoration: InputDecoration(
-                          hintText: 'Google Search',
-                          hintStyle: GoogleFonts.dmSans(color: textColor.withValues(alpha: 0.4), fontSize: 14, fontWeight: FontWeight.w400),
-                          border: InputBorder.none,
-                          isDense: true,
-                        ),
+                        decoration: InputDecoration(hintText: 'Google Search', hintStyle: GoogleFonts.dmSans(color: textColor.withValues(alpha: 0.4), fontSize: 14, fontWeight: FontWeight.w400), border: InputBorder.none, isDense: true),
                         style: GoogleFonts.dmSans(color: textColor, fontSize: 14),
                       ),
                     ),
@@ -241,44 +206,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         slivers: [
                           if (deadlines.isNotEmpty) ...[
                             SliverToBoxAdapter(child: SectionHeader(icon: Icons.access_time, label: 'DEADLINES · ${deadlines.length}')),
-                            SliverList(
-                              delegate: SliverChildBuilderDelegate(
-                                (context, index) => DeadlineTaskCard(task: deadlines[index]),
-                                childCount: deadlines.length,
-                              ),
-                            ),
+                            SliverList(delegate: SliverChildBuilderDelegate((context, index) => DeadlineTaskCard(task: deadlines[index]), childCount: deadlines.length)),
                             const SliverToBoxAdapter(child: SizedBox(height: 20)),
                           ],
-
                           if (normalTasks.isNotEmpty || (deadlines.isEmpty && doneTasks.isEmpty)) ...[
                             SliverToBoxAdapter(child: SectionHeader(icon: Icons.check, label: 'TASKS · ${normalTasks.length}')),
-                            SliverList(
-                              delegate: SliverChildBuilderDelegate(
-                                (context, index) => NormalTaskCard(task: normalTasks[index]),
-                                childCount: normalTasks.length,
-                              ),
-                            ),
+                            SliverList(delegate: SliverChildBuilderDelegate((context, index) => NormalTaskCard(task: normalTasks[index]), childCount: normalTasks.length)),
                             const SliverToBoxAdapter(child: SizedBox(height: 20)),
                           ],
-
                           if (doneTasks.isNotEmpty) ...[
-                            SliverToBoxAdapter(
-                              child: Column(
-                                children: [
-                                  Divider(color: Colors.black.withValues(alpha: 0.06), height: 1),
-                                  const SizedBox(height: 12),
-                                  SectionHeader(icon: Icons.check, label: 'DONE · ${doneTasks.length}', faded: true),
-                                ],
-                              ),
-                            ),
-                            SliverList(
-                              delegate: SliverChildBuilderDelegate(
-                                (context, index) => DoneTaskCard(task: doneTasks[index]),
-                                childCount: doneTasks.length,
-                              ),
-                            ),
+                            SliverToBoxAdapter(child: Column(children: [Divider(color: Colors.black.withValues(alpha: 0.06), height: 1), const SizedBox(height: 12), SectionHeader(icon: Icons.check, label: 'DONE · ${doneTasks.length}', faded: true)])),
+                            SliverList(delegate: SliverChildBuilderDelegate((context, index) => DoneTaskCard(task: doneTasks[index]), childCount: doneTasks.length)),
                           ],
-                          const SliverToBoxAdapter(child: SizedBox(height: 40)), // Bottom padding
+                          const SliverToBoxAdapter(child: SizedBox(height: 40)),
                         ],
                       );
                     }
@@ -287,19 +227,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ),
               ),
 
-              GestureDetector(
+             GestureDetector(
                 onVerticalDragEnd: (details) {
-                  final enableSwipe = Hive.box<String>('settingsBox').get('enable_swipe_drawer', defaultValue: 'true') == 'true';
+                  final rawSwipe = Hive.box('settingsBox').get('enable_swipe_drawer', defaultValue: true);
+                  final enableSwipe = rawSwipe is bool ? rawSwipe : rawSwipe.toString() == 'true';
+                  
                   if (enableSwipe && details.primaryVelocity != null && details.primaryVelocity! < -300) {
                     showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      transitionAnimationController: AnimationController(
-                        vsync: Navigator.of(context),
-                        duration: const Duration(milliseconds: 350),
-                      )..drive(CurveTween(curve: Curves.easeOutQuart)),
-                      builder: (_) => const AllAppsDrawerSheet(),
+                      context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+                      transitionAnimationController: AnimationController(vsync: Navigator.of(context), duration: const Duration(milliseconds: 350))..drive(CurveTween(curve: Curves.easeOutQuart)),
+                      builder: (_) => const AppListSheet(mode: AppListMode.allApps),
                     );
                   }
                 },
@@ -311,50 +248,38 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       ValueListenableBuilder(
-                        valueListenable: Hive.box<String>('settingsBox').listenable(),
+                        valueListenable: Hive.box('settingsBox').listenable(),
                         builder: (context, box, _) {
                           final favPackage = box.get('fav_app');
-                          final useMonochrome = box.get('use_monochrome', defaultValue: 'true') == 'true';
+                          
+                        
+                          final rawMono = box.get('use_monochrome', defaultValue: false);
+                          final useMonochrome = rawMono is bool ? rawMono : rawMono.toString() == 'true';
 
                           return BlocBuilder<AppCubit, AppState>(
                             builder: (context, state) {
                               if (state is AppLoaded && favPackage != null) {
                                 final favApp = state.apps.firstWhere((a) => a.packageName == favPackage, orElse: () => state.apps[0]);
                                 return DockButton(
-                                  iconBytes: favApp.icon,
-                                  letterFallback: favApp.name.isNotEmpty ? favApp.name[0].toUpperCase() : '?',
-                                  label: favApp.name,
-                                  isPrimary: false,
-                                  useMonochrome: useMonochrome,
+                                  app: favApp, label: favApp.name, isPrimary: false, useMonochrome: useMonochrome,
                                   onTap: () => context.read<AppCubit>().launchApp(favApp.packageName),
                                   onLongPress: () => box.delete('fav_app'),
                                 );
                               }
                               return DockButton(
-                                iconData: Icons.favorite_border,
-                                label: 'Fav',
-                                isPrimary: false,
-                                onTap: () => showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => const AppSelectionSheet(isSelectingFav: true)),
+                                iconData: Icons.favorite_border, label: 'Fav', isPrimary: false,
+                                onTap: () => showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => const AppListSheet(mode: AppListMode.selectFav)),
                               );
                             },
                           );
                         },
                       ),
-
                       DockButton(
-                        iconData: Icons.add,
-                        label: 'Add',
-                        isPrimary: true,
-                        onTap: () => showModalBottomSheet(
-                          context: context, isScrollControlled: true, backgroundColor: Colors.transparent, 
-                          builder: (_) => BlocProvider.value(value: context.read<TaskCubit>(), child: const AddTaskSheet()),
-                        ),
+                        iconData: Icons.add, label: 'Add', isPrimary: true,
+                        onTap: () => showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => BlocProvider.value(value: context.read<TaskCubit>(), child: const AddTaskSheet())),
                       ),
-
                       DockButton(
-                        iconData: Icons.grid_view_rounded,
-                        label: 'Apps',
-                        isPrimary: false,
+                        iconData: Icons.grid_view_rounded, label: 'Apps', isPrimary: false,
                         onTap: () => showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => const AppsDrawerSheet()),
                       ),
                     ],
@@ -369,35 +294,37 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 }
 
-
-class LiveClockWidget extends StatelessWidget {
+class LiveClockWidget extends StatefulWidget {
   const LiveClockWidget({super.key});
+  @override
+  State<LiveClockWidget> createState() => _LiveClockWidgetState();
+}
 
+class _LiveClockWidgetState extends State<LiveClockWidget> {
+  Timer? _timer;
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) { if (mounted) setState(() {}); });
+  }
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder(
-      stream: Stream.periodic(const Duration(seconds: 1)),
-      builder: (context, snapshot) {
-        final now = DateTime.now();
-        int hour = now.hour % 12;
-        if (hour == 0) hour = 12;
-        final String hourStr = hour.toString().padLeft(2, '0');
-        final String minStr = now.minute.toString().padLeft(2, '0');
-
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              hourStr,
-              style: GoogleFonts.dmMono(
-                fontSize: 64, height: 1, letterSpacing: -1.5,
-                foreground: Paint()..style = PaintingStyle.stroke..strokeWidth = 1.4..color = Colors.black.withValues(alpha: 0.82),
-              ),
-            ),
-            Text(minStr, style: GoogleFonts.dmSans(fontSize: 42, fontWeight: FontWeight.w700, color: textColor, height: 1, letterSpacing: -1.2)),
-          ],
-        );
-      },
+    final now = DateTime.now();
+    int hour = now.hour % 12;
+    if (hour == 0) hour = 12;
+    final String hourStr = hour.toString().padLeft(2, '0');
+    final String minStr = now.minute.toString().padLeft(2, '0');
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(hourStr, style: GoogleFonts.dmMono(fontSize: 64, height: 1, letterSpacing: -1.5, foreground: Paint()..style = PaintingStyle.stroke..strokeWidth = 1.4..color = Colors.black.withValues(alpha: 0.82))),
+        Text(minStr, style: GoogleFonts.dmSans(fontSize: 42, fontWeight: FontWeight.w700, color: textColor, height: 1, letterSpacing: -1.2)),
+      ],
     );
   }
 }
@@ -406,9 +333,7 @@ class SectionHeader extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool faded;
-
   const SectionHeader({super.key, required this.icon, required this.label, this.faded = false});
-
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -427,7 +352,6 @@ class SectionHeader extends StatelessWidget {
 class TaskCheckbox extends StatelessWidget {
   final bool isCompleted;
   const TaskCheckbox({super.key, required this.isCompleted});
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -441,35 +365,27 @@ class TaskCheckbox extends StatelessWidget {
 class PriorityDot extends StatelessWidget {
   final Color color;
   const PriorityDot({super.key, required this.color});
-
   @override
   Widget build(BuildContext context) {
     if (color == Colors.transparent) return const SizedBox();
-    return Container(
-      width: 6, height: 6,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle, boxShadow: [BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 4)]),
-    );
+    return Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle, boxShadow: [BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 4)]));
   }
 }
-
 
 class NormalTaskCard extends StatelessWidget {
   final TaskEntity task;
   const NormalTaskCard({super.key, required this.task});
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onLongPress: () => confirmDelete(context, task.id),
       onTap: () => context.read<TaskCubit>().toggleTaskCompletion(task),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(16), boxShadow: neuCard),
         child: Row(
           children: [
-            TaskCheckbox(isCompleted: task.isCompleted),
-            const SizedBox(width: 12),
+            TaskCheckbox(isCompleted: task.isCompleted), const SizedBox(width: 12),
             Expanded(child: Text(task.title, style: GoogleFonts.dmSans(color: textColor.withValues(alpha: 0.82), fontSize: 13, fontWeight: FontWeight.w400))),
             PriorityDot(color: getPriorityColor(task.priority)),
           ],
@@ -482,20 +398,17 @@ class NormalTaskCard extends StatelessWidget {
 class DoneTaskCard extends StatelessWidget {
   final TaskEntity task;
   const DoneTaskCard({super.key, required this.task});
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onLongPress: () => confirmDelete(context, task.id),
       onTap: () => context.read<TaskCubit>().toggleTaskCompletion(task),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(color: inputColor, borderRadius: BorderRadius.circular(16)),
         child: Row(
           children: [
-            TaskCheckbox(isCompleted: task.isCompleted),
-            const SizedBox(width: 12),
+            TaskCheckbox(isCompleted: task.isCompleted), const SizedBox(width: 12),
             Expanded(child: Text(task.title, style: GoogleFonts.dmSans(color: Colors.black.withValues(alpha: 0.28), fontSize: 13, fontWeight: FontWeight.w300, decoration: TextDecoration.lineThrough))),
           ],
         ),
@@ -507,7 +420,6 @@ class DoneTaskCard extends StatelessWidget {
 class DeadlineTaskCard extends StatefulWidget {
   final TaskEntity task;
   const DeadlineTaskCard({super.key, required this.task});
-
   @override
   State<DeadlineTaskCard> createState() => _DeadlineTaskCardState();
 }
@@ -515,19 +427,16 @@ class DeadlineTaskCard extends StatefulWidget {
 class _DeadlineTaskCardState extends State<DeadlineTaskCard> {
   Timer? _timer;
   static final Set<String> _alertedTasks = {}; 
-  static final AudioPlayer _audioPlayer = AudioPlayer(); 
 
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      if (mounted) setState(() {});
-    });
+    _timer = Timer.periodic(const Duration(minutes: 1), (_) { if (mounted) setState(() {}); });
   }
 
   @override
   void dispose() {
-    _timer?.cancel(); 
+    _timer?.cancel();
     super.dispose();
   }
 
@@ -535,19 +444,12 @@ class _DeadlineTaskCardState extends State<DeadlineTaskCard> {
     HapticFeedback.heavyImpact();
     Future.delayed(const Duration(milliseconds: 300), () => HapticFeedback.heavyImpact());
     Future.delayed(const Duration(milliseconds: 600), () => HapticFeedback.heavyImpact());
-
-    try {
-      await _audioPlayer.setReleaseMode(ReleaseMode.loop);
-      await _audioPlayer.play(AssetSource('sounds/alarm.mp3'));
-    } catch (e) {
-      debugPrint("Audio issue: $e"); 
-    }
+    AlarmService.play();
 
     if (!mounted) return;
 
     showDialog(
-      context: context,
-      barrierDismissible: false,
+      context: context, barrierDismissible: false,
       builder: (BuildContext dialogContext) {
         return Material(
           color: const Color(0xFFEF4444), 
@@ -557,16 +459,12 @@ class _DeadlineTaskCardState extends State<DeadlineTaskCard> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 100),
-                  const SizedBox(height: 32),
+                  const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 100), const SizedBox(height: 32),
                   Text('"$taskTitle"\ndeadline is so close!', textAlign: TextAlign.center, style: GoogleFonts.dmSans(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white, height: 1.2)),
                   const SizedBox(height: 64),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFFEF4444), minimumSize: const Size(double.infinity, 64), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), elevation: 0),
-                    onPressed: () {
-                      _audioPlayer.stop(); 
-                      Navigator.pop(dialogContext);
-                    },
+                    onPressed: () { AlarmService.stop(); Navigator.pop(dialogContext); },
                     child: Text('Okay', style: GoogleFonts.dmSans(fontSize: 20, fontWeight: FontWeight.bold)),
                   ),
                 ],
@@ -600,15 +498,12 @@ class _DeadlineTaskCardState extends State<DeadlineTaskCard> {
         progress = totalMinutes > 0 ? (elapsedMinutes / totalMinutes).clamp(0.0, 1.0) : 1.0;
         final diff = widget.task.deadline!.difference(now);
         isUrgent = diff.inHours <= 24;
-
         String remaining = diff.inDays > 0 ? '${diff.inDays}d' : diff.inHours > 0 ? '${diff.inHours}h' : '${diff.inMinutes}m';
         subtitle = '$remaining · ${formatDisplayDate(widget.task.deadline)}';
 
         if (progress >= 0.90 && !_alertedTasks.contains(widget.task.id)) {
           _alertedTasks.add(widget.task.id);
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _showUrgentAlarm(widget.task.title);
-          });
+          WidgetsBinding.instance.addPostFrameCallback((_) => _showUrgentAlarm(widget.task.title));
         }
       }
     }
@@ -617,19 +512,16 @@ class _DeadlineTaskCardState extends State<DeadlineTaskCard> {
       onTap: () => context.read<TaskCubit>().toggleTaskCompletion(widget.task),
       onLongPress: () => confirmDelete(context, widget.task.id),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(16), boxShadow: neuCard),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                TaskCheckbox(isCompleted: widget.task.isCompleted),
-                const SizedBox(width: 12),
+                TaskCheckbox(isCompleted: widget.task.isCompleted), const SizedBox(width: 12),
                 Expanded(child: Text(widget.task.title, style: GoogleFonts.dmSans(color: textColor.withValues(alpha: 0.82), fontSize: 13, fontWeight: FontWeight.w400))),
-                PriorityDot(color: color),
-                const SizedBox(width: 12),
+                PriorityDot(color: color), const SizedBox(width: 12),
                 CustomPaint(size: const Size(20, 20), painter: DeadlineRingPainter(progress: progress, color: color, urgent: isUrgent)),
               ],
             ),
@@ -637,8 +529,7 @@ class _DeadlineTaskCardState extends State<DeadlineTaskCard> {
               padding: const EdgeInsets.only(left: 34, top: 4),
               child: Row(
                 children: [
-                  Icon(Icons.access_time, size: 10, color: isUrgent ? const Color(0xFFEF4444) : Colors.black.withValues(alpha: 0.3)),
-                  const SizedBox(width: 6),
+                  Icon(Icons.access_time, size: 10, color: isUrgent ? const Color(0xFFEF4444) : Colors.black.withValues(alpha: 0.3)), const SizedBox(width: 6),
                   Text(subtitle, style: GoogleFonts.dmMono(fontSize: 9, letterSpacing: 0.5, color: isUrgent ? const Color(0xFFEF4444) : Colors.black.withValues(alpha: 0.36))),
                 ],
               ),
@@ -650,28 +541,42 @@ class _DeadlineTaskCardState extends State<DeadlineTaskCard> {
   }
 }
 
-
 class DockButton extends StatelessWidget {
-  final String? letterFallback;
+  final AppEntity? app;
   final IconData? iconData;
-  final Uint8List? iconBytes;
   final String label;
   final bool isPrimary;
   final bool useMonochrome;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  static const ColorFilter greyscaleFilter = ColorFilter.matrix(<double>[
+    0.2126, 0.7152, 0.0722, 0, 0,
+    0.2126, 0.7152, 0.0722, 0, 0,
+    0.2126, 0.7152, 0.0722, 0, 0,
+    0, 0, 0, 1, 0,
+  ]);
 
   const DockButton({
-    super.key, this.letterFallback, this.iconData, this.iconBytes, required this.label, required this.isPrimary, this.useMonochrome = false, this.onTap, this.onLongPress,
+    super.key, this.app, this.iconData, required this.label, required this.isPrimary, this.useMonochrome = false, this.onTap, this.onLongPress,
   });
 
   @override
   Widget build(BuildContext context) {
+    Widget getIcon() {
+      if (iconData != null) {
+        return Icon(iconData, color: isPrimary ? const Color(0xFFF5F5F5) : Colors.black.withValues(alpha: 0.52), size: 24);
+      }
+      if (app != null && app!.icon != null) {
+        final img = Image.memory(app!.icon!, width: 28, height: 28, cacheWidth: 84, cacheHeight: 84, gaplessPlayback: true);
+        return useMonochrome ? ColorFiltered(colorFilter: greyscaleFilter, child: img) : img;
+      }
+      return Text(app != null && app!.name.isNotEmpty ? app!.name[0].toUpperCase() : '?', style: GoogleFonts.dmMono(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black.withValues(alpha: 0.7)));
+    }
+
     return SizedBox(
       width: 60,
       child: GestureDetector(
-        onTap: onTap,
-        onLongPress: onLongPress,
+        onTap: onTap, onLongPress: onLongPress,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -681,15 +586,7 @@ class DockButton extends StatelessWidget {
                 color: isPrimary ? textColor : bgColor, borderRadius: BorderRadius.circular(20),
                 boxShadow: isPrimary ? [BoxShadow(color: Colors.black.withValues(alpha: 0.28), blurRadius: 10, offset: const Offset(3, 3))] : neuOut,
               ),
-              child: Center(
-                child: iconData != null
-                    ? Icon(iconData, color: isPrimary ? const Color(0xFFF5F5F5) : Colors.black.withValues(alpha: 0.52), size: 24)
-                    : iconBytes != null
-                        ? (useMonochrome 
-                            ? ColorFiltered(colorFilter: greyscaleFilter, child: Image.memory(iconBytes!, width: 28, height: 28, cacheWidth: 84, cacheHeight: 84, gaplessPlayback: true)) // OPTIMIZED
-                            : Image.memory(iconBytes!, width: 28, height: 28, cacheWidth: 84, cacheHeight: 84, gaplessPlayback: true)) // OPTIMIZED
-                        : Text(letterFallback ?? '?', style: GoogleFonts.dmMono(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black.withValues(alpha: 0.7))),
-              ),
+              child: Center(child: getIcon()),
             ),
             const SizedBox(height: 8),
             Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.dmMono(color: isPrimary ? Colors.black.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.3), fontSize: 9, letterSpacing: 1.0, fontWeight: FontWeight.w500)),
@@ -699,29 +596,24 @@ class DockButton extends StatelessWidget {
     );
   }
 }
-
 class DeadlineRingPainter extends CustomPainter {
   final double progress;
   final Color color;
   final bool urgent;
-
   DeadlineRingPainter({required this.progress, required this.color, required this.urgent});
-
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2;
-
     final trackPaint = Paint()..color = Colors.black.withValues(alpha: 0.08)..style = PaintingStyle.stroke..strokeWidth = 2.5;
     canvas.drawCircle(center, radius, trackPaint);
-
     final fillPaint = Paint()..color = color..style = PaintingStyle.stroke..strokeWidth = 2.5..strokeCap = StrokeCap.round;
     canvas.drawArc(Rect.fromCircle(center: center, radius: radius), -1.5708, progress * 6.2832, false, fillPaint);
-
     final dotPaint = Paint()..color = urgent ? color : Colors.black.withValues(alpha: 0.18)..style = PaintingStyle.fill;
     canvas.drawCircle(center, 2.5, dotPaint);
   }
-
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true; // Re-paints cleanly per minute now
+  bool shouldRepaint(covariant DeadlineRingPainter oldDelegate) {
+    return oldDelegate.progress != progress || oldDelegate.color != color || oldDelegate.urgent != urgent; 
+  } 
 }

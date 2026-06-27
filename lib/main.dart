@@ -2,21 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 
-
 import 'core/database/hive_setup.dart';
-
 
 import 'features/tasks/data/datasources/task_local_data_source.dart';
 import 'features/tasks/data/repositories/task_repository_impl.dart';
 import 'features/tasks/domain/usecases/task_usecases.dart';
 import 'features/tasks/presentation/bloc/task_cubit.dart';
 
-
 import 'features/apps/data/datasources/app_local_data_source.dart';
 import 'features/apps/data/repositories/app_repository_impl.dart';
 import 'features/apps/domain/usecases/app_usecases.dart';
 import 'features/apps/presentation/bloc/app_cubit.dart';
-
 
 import 'features/tasks/presentation/pages/home_page.dart';
 
@@ -25,9 +21,6 @@ void main() async {
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   await HiveSetup.init();
   
-  
-  
-  
   final taskLocalDataSource = TaskLocalDataSourceImpl();
   final taskRepository = TaskRepositoryImpl(taskLocalDataSource);
   final getTasksUseCase = GetTasksUseCase(taskRepository);
@@ -35,7 +28,6 @@ void main() async {
   final updateTaskUseCase = UpdateTaskUseCase(taskRepository);
   final deleteTaskUseCase = DeleteTaskUseCase(taskRepository);
 
-  
   final appLocalDataSource = AppLocalDataSourceImpl();
   final appRepository = AppRepositoryImpl(appLocalDataSource);
   final getInstalledAppsUseCase = GetInstalledAppsUseCase(appRepository);
@@ -57,7 +49,7 @@ void main() async {
           create: (_) => AppCubit(
             getInstalledAppsUseCase: getInstalledAppsUseCase,
             launchAppUseCase: launchAppUseCase,
-          )..loadApps(),
+          ),
         ),
       ],
       child: MaterialApp(
@@ -67,7 +59,7 @@ void main() async {
           useMaterial3: true,
           scaffoldBackgroundColor: const Color(0xFFF0F0F0),
         ),
-        home:  HomePage(),
+        home: const HomePage(),
       ),
     ),
   );

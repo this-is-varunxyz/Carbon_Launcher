@@ -9,12 +9,16 @@ abstract class AppState extends Equatable {
 
 class AppInitial extends AppState {}
 class AppLoading extends AppState {}
+
 class AppLoaded extends AppState {
   final List<AppEntity> apps;
-  const AppLoaded(this.apps);
+  final bool isIconsLoaded; 
+
+  const AppLoaded({required this.apps, this.isIconsLoaded = false});
   @override
-  List<Object> get props => [apps];
+  List<Object> get props => [apps, isIconsLoaded];
 }
+
 class AppError extends AppState {
   final String message;
   const AppError(this.message);
