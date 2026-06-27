@@ -31,14 +31,14 @@ class CarbonSettingsSheet extends StatelessWidget {
               return Column(
                 children: [
                   SwitchListTile(
-                    activeColor: Colors.black, contentPadding: EdgeInsets.zero,
+                    activeThumbColor: Colors.black, contentPadding: EdgeInsets.zero,
                     title: Text('Monochrome Icons', style: GoogleFonts.dmSans(fontWeight: FontWeight.w600, color: Colors.black)),
                     subtitle: Text('Apply grayscale filter to all app icons', style: GoogleFonts.dmSans(fontSize: 12, color: Colors.black.withValues(alpha: 0.6))),
                     value: useMonochrome, onChanged: (value) => box.put('use_monochrome', value),
                   ),
                   const SizedBox(height: 8),
                   SwitchListTile(
-                    activeColor: Colors.black, contentPadding: EdgeInsets.zero,
+                    activeThumbColor: Colors.black, contentPadding: EdgeInsets.zero,
                     title: Text('Swipe-Up App Drawer', style: GoogleFonts.dmSans(fontWeight: FontWeight.w600, color: Colors.black)),
                     subtitle: Text('Swipe up on the bottom dock to open all apps', style: GoogleFonts.dmSans(fontSize: 12, color: Colors.black.withValues(alpha: 0.6))),
                     value: enableSwipeDrawer, onChanged: (value) => box.put('enable_swipe_drawer', value),

@@ -13,11 +13,11 @@ class AppRepositoryImpl implements AppRepository {
     final rawApps = await dataSource.getInstalledApps(withIcon: withIcon);
     
     final apps = rawApps.map((app) {
-      final safeName = app.name ?? 'Unknown';
+      final safeName = app.name ;
       return AppEntity(
         name: safeName,
         nameLower: safeName.toLowerCase(), 
-        packageName: app.packageName ?? '',
+        packageName: app.packageName ,
         icon: app.icon, 
       );
     }).toList();

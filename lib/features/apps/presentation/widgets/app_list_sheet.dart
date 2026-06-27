@@ -34,8 +34,8 @@ class _AppListSheetState extends State<AppListSheet> {
   String? _draggingLetter;
   double _dragBubbleY = 0.0;
 
-  Map<String, double> _letterOffsets = {};
-  List<dynamic> _flattenedList = [];
+  final Map<String, double> _letterOffsets = {};
+  final List<dynamic> _flattenedList = [];
 
   static const ColorFilter greyscaleFilter = ColorFilter.matrix(<double>[
     0.2126, 0.7152, 0.0722, 0, 0,
